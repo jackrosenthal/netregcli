@@ -6,7 +6,7 @@ import string
 import getpass
 import warnings
 
-authfile_p = re.compile(r'^(\w+)\s*= (.*)$')
+authfile_p = re.compile(r'^(\w+)\s*= ?(.*)$')
 
 def fullname(username):
     r = requests.get('https://mastergo.mines.edu/mpapi/uid/' + username)
