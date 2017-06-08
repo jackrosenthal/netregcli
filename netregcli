@@ -1,0 +1,69 @@
+#!/usr/bin/env python3
+import requests
+import argparse
+import re
+import string
+import getpass
+import warnings
+
+authfile_p = re.compile(r'^(\w+)\s*= (.*)$')
+
+def fullname(username):
+    r = requests.get('https://mastergo.mines.edu/mpapi/uid/' + username)
+    if not r.ok:
+        raise OSError
+    data = r.json()
+    if not data['result'] == 'success':
+        raise ValueError('Bad Mines username')
+    return data['attributes']['first'] + ' ' + data['attributes']['sn']
+
+def netreg(fullname, username, password, mac, os='Yes', status='undergraduate'):
+    data = {
+        'state': 'enteredData',
+        'agreed': 'true',
+        'netcode': '',
+        'name': fullname,
+        'email': username + '@mines.edu',
+        'status': status,
+        'os': os,
+        'mac': mac,
+        'username': username,
+        'password': password,
+    }
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        r = requests.post('https://dumbledore.mines.edu/cgi-bin/networking/registerV3.0.cgi', data=data, verify=False)
+    if r.ok and 'Registration failed' not in r.text:
+        print('Successfully registered {}!'.format(mac))
+    else:
+        print('Registration failed for {}:'.format(mac))
+        if r.ok:
+            print(r.text.partition('<ul>\n')[2].partition('\n</ul>')[0].replace('<li>', '* '))
+        else:
+            print('  * Unable to contact netreg site')
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-u', '--username', default=getpass.getuser(), type=str, help='MultiPass Username (if no credential file)')
+    parser.add_argument('-f', '--authfile', default=None, type=argparse.FileType('r'), help='MultiPass Credential File (if no username)')
+    parser.add_argument('-o', '--os', default='Yes', type=str, help='Operating System (default is "yes")')
+    parser.add_argument('-s', '--status', default='undergraduate', type=str, help='Status (default is "undergraduate")')
+    parser.add_argument('macs', nargs='+', help='A list of MAC addresses to parse (in pretty much any format)')
+    args = parser.parse_args()
+
+    password = None
+    if args.authfile:
+        for line in args.authfile:
+            m = authfile_p.match(line)
+            if m and m.group(1) == 'username':
+                args.username = m.group(2)
+            elif m and m.group(1) == 'password':
+                password = m.group(2)
+
+    if not password:
+        password = getpass.getpass('MultiPass Password for {}: '.format(args.username))
+
+    macs = ['{}{}:{}{}:{}{}:{}{}:{}{}:{}{}'.format(*(c.lower() for c in m if c in string.hexdigits)) for m in args.macs]
+
+    for mac in macs:
+        netreg(fullname=fullname(args.username), username=args.username, password=password, os=args.os, status=args.status, mac=mac)
