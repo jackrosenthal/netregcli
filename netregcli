@@ -48,6 +48,7 @@ if __name__ == '__main__':
     parser.add_argument('-f', '--authfile', default=None, type=argparse.FileType('r'), help='MultiPass Credential File (if no username)')
     parser.add_argument('-o', '--os', default='Yes', type=str, help='Operating System (default is "yes")')
     parser.add_argument('-s', '--status', default='undergraduate', type=str, help='Status (default is "undergraduate")')
+    parser.add_argument('-n', '--name', default=None, type=str, help='Full name (uses mpapi by default)')
     parser.add_argument('macs', nargs='+', help='A list of MAC addresses to parse (in pretty much any format)')
     args = parser.parse_args()
 
@@ -65,5 +66,11 @@ if __name__ == '__main__':
 
     macs = ['{}{}:{}{}:{}{}:{}{}:{}{}:{}{}'.format(*(c.lower() for c in m if c in string.hexdigits)) for m in args.macs]
 
+    if not args.name:
+        try:
+            args.name = fullname(args.username)
+        except OSError:
+            args.name = input("Can't reach mastergo... so what is your name? ")
+
     for mac in macs:
-        netreg(fullname=fullname(args.username), username=args.username, password=password, os=args.os, status=args.status, mac=mac)
+        netreg(fullname=args.name, username=args.username, password=password, os=args.os, status=args.status, mac=mac)
